@@ -64,9 +64,9 @@ def user_input(question, api_key):
     result = agent_executor.invoke({"input": question})
     st.write("Reply:", response["output"])
 
-if not openai_api_key:
-    st.info("Please add your OpenAI API key to continue.", icon="🗝️")
-else:
+# if not openai_api_key:
+#     st.info("Please add your OpenAI API key to continue.", icon="🗝️")
+# else:
 
 # Streamlit UI
 def main():
@@ -76,8 +76,6 @@ def main():
         "This is a simple chatbot that uses OpenAI's GPT-3.5 model to generate responses. "
         "It uses LangChain with RAG and ChatGPT"
     )
-
-    
 
     # Ask user for their OpenAI API key via `st.text_input`.
     # Alternatively, you can store the API key in `./.streamlit/secrets.toml` and access it
