@@ -1,4 +1,7 @@
-import streamlit as st
+from langchain.text_splitter import CharacterTextSplitter
+from langchain_community.vectorstores import FAISS
+from langchain_openai.embeddings import OpenAIEmbeddings
+import os
 from openai import OpenAI
 from langchain.text_splitter import CharacterTextSplitter
 from langchain_community.vectorstores import FAISS
