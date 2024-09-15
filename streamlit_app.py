@@ -8,11 +8,13 @@ from langchain_community.vectorstores import FAISS
 from langchain_openai.embeddings import OpenAIEmbeddings
 import os
 from langchain_community.document_loaders import PyPDFLoader
-from PyPDF2 import PdfReader
+# from PyPDF2 import PdfReader
 from langchain_openai.chat_models import ChatOpenAI
 from langchain.agents.agent_toolkits import create_retriever_tool
 from langchain.agents.agent_toolkits import create_conversational_retrieval_agent
 from langchain.chains.question_answering import load_qa_chain
+from langchain.prompts import PromptTemplate
+import streamlit as st
 
 
 def get_pdf_text(pdf_docs):
@@ -29,7 +31,7 @@ def get_pdf_text(pdf_docs):
 def get_chunks(mydocuments):
     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
     texts = text_splitter.split_documents(mydocuments)
-    return chunks
+    return texts
 
 def get_vector_store(text_chunk, api_key):
     embeddings = OpenAIEmbeddings()
@@ -37,7 +39,7 @@ def get_vector_store(text_chunk, api_key):
     vector_store.save_local("faiss_index")
 
 
-def get_conversation_chain():
+def get_conversational_chain():
     prompt_template = """Answer the question as detailed as possible from the provided context\n\n
     context ;\n {context}?\n
     question: \n {question}?n 
@@ -45,24 +47,18 @@ def get_conversation_chain():
     Answer:
     """
     chat_llm = ChatOpenAI(temperature = 0)
-    prompt = prompt_template(template=prompt_template, input_variable = ["context","question"])
+    prompt = PromptTemplate(template=prompt_template, input_variable = ["context","question"])
     chain = load_qa_chain(chat_llm, chain_type="stuff", prompt=prompt)
     return chain
 
 def user_input(question, api_key):
     embeddings = OpenAIEmbeddings()
-    db = FAISS.load_local("faiss_index",embeddings)
-    # chain = get_conversation_chain()
-    retriever = db.as_retriever()
-    tools = [
-    create_retriever_tool(
-        retriever,
-        "user_policy_document",
-        "Business insurance policy document"
-    )]
-    agent_executor = create_conversational_retrieval_agent(chat_llm,tools, verbose=True)
-    result = agent_executor.invoke({"input": question})
-    st.write("Reply:", response["output"])
+    new_db = FAISS.load_local("faiss_index", embeddings)
+    docs = new_db.similarity_search(question)
+    chain = get_conversational_chain()
+    response = chain({"input_documents": docs, "question": question}, return_only_outputs=True)
+    st.write("Reply: ", response["output_text"])
+
 
 # if not openai_api_key:
 #     st.info("Please add your OpenAI API key to continue.", icon="🗝️")
@@ -80,7 +76,7 @@ def main():
     # Ask user for their OpenAI API key via `st.text_input`.
     # Alternatively, you can store the API key in `./.streamlit/secrets.toml` and access it
     # via `st.secrets`, see https://docs.streamlit.io/develop/concepts/connections/secrets-management
-    openai_api_key = st.text_input("OpenAI API Key", type="password")
+    api_key = st.text_input("OpenAI API Key", type="password")
 
     with st.sidebar:
         st.title("Menu")
@@ -89,8 +85,8 @@ def main():
             with st.spinner("processing.."):
                 text = get_pdf_text(pdf_docs)
                 chunks = get_chunks(text)
-                get_vector_store(chunks, appi_key)
+                get_vector_store(chunks, api_key)
                 st.success("Done")
 
-if _name_ = "_main_":
+if __name__ == "_main_":
     main()
