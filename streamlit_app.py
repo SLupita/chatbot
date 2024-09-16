@@ -1,43 +1,55 @@
-from langchain.text_splitter import CharacterTextSplitter
-from langchain_community.vectorstores import FAISS
+import streamlit as st
+from PyPDF2 import PdfReader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_openai.embeddings import OpenAIEmbeddings
-import os
-from openai import OpenAI
-from langchain.text_splitter import CharacterTextSplitter
-from langchain_community.vectorstores import FAISS
-from langchain_openai.embeddings import OpenAIEmbeddings
-import os
-from langchain_community.document_loaders import PyPDFLoader
-# from PyPDF2 import PdfReader
+# import google.generativeai as genai
+from langchain.vectorstores import FAISS
 from langchain_openai.chat_models import ChatOpenAI
-from langchain.agents.agent_toolkits import create_retriever_tool
-from langchain.agents.agent_toolkits import create_conversational_retrieval_agent
 from langchain.chains.question_answering import load_qa_chain
 from langchain.prompts import PromptTemplate
-import streamlit as st
+import os
 
+st.set_page_config(page_title="Document Genie", layout="wide")
+
+st.markdown("""
+## Document Genie: Get instant insights from your Documents
+
+This chatbot is built using the Retrieval-Augmented Generation (RAG) framework, leveraging Google's Generative AI model Gemini-PRO. It processes uploaded PDF documents by breaking them down into manageable chunks, creates a searchable vector store, and generates accurate answers to user queries. This advanced approach ensures high-quality, contextually relevant responses for an efficient and effective user experience.
+
+### How It Works
+
+Follow these simple steps to interact with the chatbot:
+
+1. **Enter Your API Key**: You'll need a Google API key for the chatbot to access Google's Generative AI models. Obtain your API key https://makersuite.google.com/app/apikey.
+
+2. **Upload Your Documents**: The system accepts multiple PDF files at once, analyzing the content to provide comprehensive insights.
+
+3. **Ask a Question**: After processing the documents, ask any question related to the content of your uploaded documents for a precise answer.
+""")
+
+
+
+# This is the first API key input; no need to repeat it in the main function.
+api_key = st.text_input("Enter your Google API Key:", type="password", key="api_key_input")
+os.environ['OPENAI_API_KEY'] = api_key
 
 def get_pdf_text(pdf_docs):
-    text=""
+    text = ""
     for pdf in pdf_docs:
-        pdfloader = PyPDFLoader(pdf)
-        pdfpages = pdfloader.load_and_split()
-
-        # pdf_reader = PdfReader(pdf)
-        # for page in pdf_reader.pages:
-        #     text = page.extraxt.text()
+        pdf_reader = PdfReader(pdf)
+        for page in pdf_reader.pages:
+            text += page.extract_text()
     return text
 
-def get_chunks(mydocuments):
-    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
-    texts = text_splitter.split_documents(mydocuments)
-    return texts
+def get_text_chunks(text):
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=10000, chunk_overlap=1000)
+    chunks = text_splitter.split_text(text)
+    return chunks
 
-def get_vector_store(text_chunk, api_key):
+def get_vector_store(text_chunks, api_key):
     embeddings = OpenAIEmbeddings()
-    vector_store = FAISS.from_documents(text_chunk, embeddings)
+    vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
     vector_store.save_local("faiss_index")
-
 
 def get_conversational_chain():
     prompt_template = """
@@ -48,47 +60,36 @@ def get_conversational_chain():
 
     Answer:
     """
-    chat_llm = ChatOpenAI(temperature = 0)
-    prompt = PromptTemplate(template=prompt_template, input_variable = ["context","question"])
-    chain = load_qa_chain(chat_llm, chain_type="stuff", prompt=prompt)
+    model = ChatOpenAI(temperature = 0)
+    prompt = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
+    chain = load_qa_chain(model, chain_type="stuff", prompt=prompt)
     return chain
 
-def user_input(question, api_key):
+def user_input(user_question, api_key):
     embeddings = OpenAIEmbeddings()
-    new_db = FAISS.load_local("faiss_index", embeddings)
-    docs = new_db.similarity_search(question)
+    new_db = FAISS.load_local("faiss_index", embeddings,allow_dangerous_deserialization=True)
+    docs = new_db.similarity_search(user_question)
     chain = get_conversational_chain()
-    response = chain({"input_documents": docs, "question": question}, return_only_outputs=True)
+    response = chain({"input_documents": docs, "question": user_question}, return_only_outputs=True)
     st.write("Reply: ", response["output_text"])
 
-
-# if not openai_api_key:
-#     st.info("Please add your OpenAI API key to continue.", icon="🗝️")
-# else:
-
-# Streamlit UI
 def main():
-    # Show title and description.
-    st.title("💬 Chatbot")
-    st.write(
-        "This is a simple chatbot that uses OpenAI's GPT-3.5 model to generate responses. "
-        "It uses LangChain with RAG and ChatGPT"
-    )
+    st.header("AI clone chatbot💁")
 
-    # Ask user for their OpenAI API key via `st.text_input`.
-    # Alternatively, you can store the API key in `./.streamlit/secrets.toml` and access it
-    # via `st.secrets`, see https://docs.streamlit.io/develop/concepts/connections/secrets-management
-    api_key = st.text_input("OpenAI API Key", type="password")
+    user_question = st.text_input("Ask a Question from the PDF Files", key="user_question")
+
+    if user_question and api_key:  # Ensure API key and user question are provided
+        user_input(user_question, api_key)
 
     with st.sidebar:
-        st.title("Menu")
-        pdf_docs = st.file_uploader("Upload your docs", accept_multiple_files=True, key="pdf_uploader")
-        if st.button("submit & process", ley="process_button") and api_key:
-            with st.spinner("processing.."):
-                text = get_pdf_text(pdf_docs)
-                chunks = get_chunks(text)
-                get_vector_store(chunks, api_key)
+        st.title("Menu:")
+        pdf_docs = st.file_uploader("Upload your PDF Files and Click on the Submit & Process Button", accept_multiple_files=True, key="pdf_uploader")
+        if st.button("Submit & Process", key="process_button") and api_key:  # Check if API key is provided before processing
+            with st.spinner("Processing..."):
+                raw_text = get_pdf_text(pdf_docs)
+                text_chunks = get_text_chunks(raw_text)
+                get_vector_store(text_chunks, api_key)
                 st.success("Done")
 
-if __name__ == "_main_":
+if __name__ == "__main__":
     main()
