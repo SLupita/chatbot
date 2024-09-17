@@ -2,7 +2,6 @@ import streamlit as st
 from PyPDF2 import PdfReader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_openai.embeddings import OpenAIEmbeddings
-# import google.generativeai as genai
 from langchain.vectorstores import FAISS
 from langchain_openai.chat_models import ChatOpenAI
 from langchain.chains.question_answering import load_qa_chain
@@ -14,13 +13,13 @@ st.set_page_config(page_title="Document Genie", layout="wide")
 st.markdown("""
 ## Document Genie: Get instant insights from your Documents
 
-This chatbot is built using the Retrieval-Augmented Generation (RAG) framework, leveraging Google's Generative AI model Gemini-PRO. It processes uploaded PDF documents by breaking them down into manageable chunks, creates a searchable vector store, and generates accurate answers to user queries. This advanced approach ensures high-quality, contextually relevant responses for an efficient and effective user experience.
+This chatbot is built using the Retrieval-Augmented Generation (RAG) framework, leveraging OpenAI's Generative AI model. It processes uploaded PDF documents by breaking them down into manageable chunks, creates a searchable vector store, and generates accurate answers to user queries. This advanced approach ensures high-quality, contextually relevant responses for an efficient and effective user experience.
 
 ### How It Works
 
 Follow these simple steps to interact with the chatbot:
 
-1. **Enter Your API Key**: You'll need a Google API key for the chatbot to access Google's Generative AI models. Obtain your API key https://makersuite.google.com/app/apikey.
+1. **Enter Your API Key**: You'll need a OpenAI's API key for the chatbot to access OpenAI's Generative AI models. Obtain your API key here: https://platform.openai.com/api-keys.
 
 2. **Upload Your Documents**: The system accepts multiple PDF files at once, analyzing the content to provide comprehensive insights.
 
@@ -30,7 +29,7 @@ Follow these simple steps to interact with the chatbot:
 
 
 # This is the first API key input; no need to repeat it in the main function.
-api_key = st.text_input("Enter your Google API Key:", type="password", key="api_key_input")
+api_key = st.text_input("Enter your OpenAI API Key:", type="password", key="api_key_input")
 os.environ['OPENAI_API_KEY'] = api_key
 
 def get_pdf_text(pdf_docs):
